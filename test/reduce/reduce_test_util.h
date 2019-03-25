@@ -63,6 +63,8 @@ void NopDiagnostic(spv_message_level_t /*level*/, const char* /*source*/,
 void CLIMessageConsumer(spv_message_level_t level, const char*,
                         const spv_position_t& position, const char* message);
 
+void DumpShader(opt::IRContext* context, const char* filename);
+
 }  // namespace reduce
 }  // namespace spvtools
 
