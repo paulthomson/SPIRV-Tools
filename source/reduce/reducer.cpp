@@ -24,6 +24,7 @@
 #include "source/reduce/operand_to_undef_reduction_opportunity_finder.h"
 #include "source/reduce/remove_block_reduction_opportunity_finder.h"
 #include "source/reduce/remove_function_reduction_opportunity_finder.h"
+#include "source/reduce/remove_module_instruction_reduction_opportunity_finder.h"
 #include "source/reduce/remove_opname_instruction_reduction_opportunity_finder.h"
 #include "source/reduce/remove_selection_reduction_opportunity_finder.h"
 #include "source/reduce/remove_unreferenced_instruction_reduction_opportunity_finder.h"
@@ -198,6 +199,8 @@ void Reducer::AddDefaultReductionPasses() {
           ConditionalBranchToSimpleConditionalBranchOpportunityFinder>());
   AddReductionPass(
       spvtools::MakeUnique<SimpleConditionalBranchToBranchOpportunityFinder>());
+  AddReductionPass(spvtools::MakeUnique<
+                   RemoveModuleInstructionReductionOpportunityFinder>());
 }
 
 void Reducer::AddReductionPass(

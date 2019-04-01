@@ -39,6 +39,7 @@ set(SPIRV_TOOLS_REDUCE_SOURCES
         conditional_branch_to_simple_conditional_branch_reduction_opportunity.h
         simple_conditional_branch_to_branch_opportunity_finder.h
         simple_conditional_branch_to_branch_reduction_opportunity.h
+        remove_module_instruction_reduction_opportunity_finder.h
 
         change_operand_reduction_opportunity.cpp
         change_operand_to_undef_reduction_opportunity.cpp
@@ -66,6 +67,7 @@ set(SPIRV_TOOLS_REDUCE_SOURCES
         conditional_branch_to_simple_conditional_branch_reduction_opportunity.cpp
         simple_conditional_branch_to_branch_opportunity_finder.cpp
         simple_conditional_branch_to_branch_reduction_opportunity.cpp
+        remove_module_instruction_reduction_opportunity_finder.cpp
 )
 
 if(MSVC)
