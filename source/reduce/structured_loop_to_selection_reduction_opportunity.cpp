@@ -21,6 +21,8 @@
 namespace spvtools {
 namespace reduce {
 
+using namespace opt;
+
 namespace {
 const uint32_t kMergeNodeIndex = 0;
 }  // namespace
