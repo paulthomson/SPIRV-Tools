@@ -97,6 +97,10 @@ void CLIMessageConsumer(spv_message_level_t level, const char*,
 void DumpShader(opt::IRContext* context, const char* filename) {
   std::vector<uint32_t> binary;
   context->module()->ToBinary(&binary, false);
+  DumpShader(binary, filename);
+}
+
+void DumpShader(const std::vector<uint32_t>& binary, const char* filename) {
   auto write_file_succeeded =
       WriteFile(filename, "wb", &binary[0], binary.size());
   if (!write_file_succeeded) {
