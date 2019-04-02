@@ -24,6 +24,8 @@ namespace spvtools {
 namespace reduce {
 namespace {
 
+using namespace opt;
+
 const spv_target_env kEnv = SPV_ENV_UNIVERSAL_1_3;
 
 // This changes its mind each time IsInteresting is invoked as to whether the
@@ -325,7 +327,7 @@ bool InterestingWhileOpcodeExists(const std::vector<uint32_t>& binary,
   ss << "temp_" << count << ".spv";
   DumpShader(binary, ss.str().c_str());
 
-  std::unique_ptr<opt::IRContext> context =
+  std::unique_ptr<IRContext> context =
       BuildModule(kEnv, CLIMessageConsumer, binary.data(), binary.size());
   assert(context);
   bool interesting = false;
