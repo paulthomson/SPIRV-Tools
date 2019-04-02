@@ -22,6 +22,8 @@ namespace spvtools {
 namespace reduce {
 namespace {
 
+using namespace opt;
+
 // A dumb reduction opportunity finder that finds opportunities to remove global
 // values regardless of whether they are referenced. This is very likely to make
 // the resulting module invalid.  We use this to test the reducer's behavior in
@@ -40,7 +42,7 @@ class BlindlyRemoveGlobalValuesReductionOpportunityFinder
   // referenced (directly or indirectly) from elsewhere in the module, each such
   // opportunity will make the module invalid.
   std::vector<std::unique_ptr<ReductionOpportunity>> GetAvailableOpportunities(
-      opt::IRContext* context) const final {
+      IRContext* context) const final {
     std::vector<std::unique_ptr<ReductionOpportunity>> result;
     for (auto& inst : context->module()->types_values()) {
       if (inst.HasResultId()) {
@@ -98,7 +100,7 @@ class OpVariableDuplicatorReductionOpportunityFinder
   };
 
   std::vector<std::unique_ptr<ReductionOpportunity>> GetAvailableOpportunities(
-      opt::IRContext* context) const final {
+      IRContext* context) const final {
     std::vector<std::unique_ptr<ReductionOpportunity>> result;
     for (auto& function : *context->module()) {
       Instruction* first_instruction = &*function.begin()[0].begin();
