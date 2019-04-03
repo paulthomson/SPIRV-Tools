@@ -348,18 +348,17 @@ bool InterestingWhileOpcodeExists(const std::vector<uint32_t>& binary,
   return interesting;
 }
 
-bool InterestingWhileIMulExists(const std::vector<uint32_t>& binary,
-                                uint32_t count) {
+bool InterestingWhileIMulReachable(const std::vector<uint32_t>& binary,
+                                   uint32_t count) {
   return InterestingWhileOpcodeExists(binary, SpvOpIMul, count);
 }
 
-// bool InterestingWhileSDivExists(const std::vector<uint32_t>& binary, uint32_t
-// count) {
-//  return InterestingWhileOpcodeExists(binary, SpvOpSDiv, count);
-//}
+bool InterestingWhileSDivReachable(const std::vector<uint32_t>& binary,
+                                   uint32_t count) {
+  return InterestingWhileOpcodeExists(binary, SpvOpSDiv, count);
+}
 
-TEST(ReducerTest, FuzzTwo) {
-  const std::string original = R"(
+const std::string shaderWithLoopsDivAndMul = R"(
                OpCapability Shader
           %1 = OpExtInstImport "GLSL.std.450"
                OpMemoryModel Logical GLSL450
@@ -442,16 +441,41 @@ TEST(ReducerTest, FuzzTwo) {
                OpFunctionEnd
   )";
 
+TEST(ReducerTest, ShaderReduceWhileMulReachable) {
   Reducer reducer(kEnv);
 
-  reducer.SetInterestingnessFunction(InterestingWhileIMulExists);
+  reducer.SetInterestingnessFunction(InterestingWhileIMulReachable);
   reducer.AddDefaultReductionPasses();
   reducer.SetMessageConsumer(CLIMessageConsumer);
 
   std::vector<uint32_t> binary_in;
   SpirvTools t(kEnv);
 
-  ASSERT_TRUE(t.Assemble(original, &binary_in, kReduceAssembleOption));
+  ASSERT_TRUE(
+      t.Assemble(shaderWithLoopsDivAndMul, &binary_in, kReduceAssembleOption));
+  std::vector<uint32_t> binary_out;
+  spvtools::ReducerOptions reducer_options;
+  reducer_options.set_step_limit(500);
+  spvtools::ValidatorOptions validator_options;
+
+  Reducer::ReductionResultStatus status = reducer.Run(
+      std::move(binary_in), &binary_out, reducer_options, validator_options);
+
+  ASSERT_EQ(status, Reducer::ReductionResultStatus::kComplete);
+}
+
+TEST(ReducerTest, ShaderReduceWhileDivReachable) {
+  Reducer reducer(kEnv);
+
+  reducer.SetInterestingnessFunction(InterestingWhileSDivReachable);
+  reducer.AddDefaultReductionPasses();
+  reducer.SetMessageConsumer(CLIMessageConsumer);
+
+  std::vector<uint32_t> binary_in;
+  SpirvTools t(kEnv);
+
+  ASSERT_TRUE(
+      t.Assemble(shaderWithLoopsDivAndMul, &binary_in, kReduceAssembleOption));
   std::vector<uint32_t> binary_out;
   spvtools::ReducerOptions reducer_options;
   reducer_options.set_step_limit(500);
