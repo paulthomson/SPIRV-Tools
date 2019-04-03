@@ -24,6 +24,214 @@ namespace {
 
 const spv_target_env kEnv = SPV_ENV_UNIVERSAL_1_3;
 
+TEST(ConditionalBranchToSimpleConditionalBranchTest, Diamond) {
+  // A test with the following structure.
+  //
+  // selection header
+  // OpBranchConditional
+  //  |         |
+  //  b         b
+  //  |         |
+  //  selection merge
+  //
+  // There should be two opportunities for redirecting the OpBranchConditional
+  // targets: redirecting the true to false, and vice-versa. E.g. false to true:
+  //
+  // selection header
+  // OpBranchConditional
+  //  ||
+  //  b         b
+  //  |         |
+  //  selection merge
+
+  std::string shader = R"(
+               OpCapability Shader
+          %1 = OpExtInstImport "GLSL.std.450"
+               OpMemoryModel Logical GLSL450
+               OpEntryPoint Fragment %2 "main"
+               OpExecutionMode %2 OriginUpperLeft
+               OpSource ESSL 310
+               OpName %2 "main"
+          %3 = OpTypeVoid
+          %4 = OpTypeFunction %3
+          %5 = OpTypeInt 32 1
+          %6 = OpTypePointer Function %5
+          %7 = OpTypeBool
+          %8 = OpConstantTrue %7
+          %2 = OpFunction %3 None %4
+          %9 = OpLabel
+               OpBranch %10
+         %10 = OpLabel
+               OpSelectionMerge %11 None
+               OpBranchConditional %8 %12 %13
+         %12 = OpLabel
+               OpBranch %11
+         %13 = OpLabel
+               OpBranch %11
+         %11 = OpLabel
+               OpReturn
+               OpFunctionEnd
+
+    )";
+
+  auto context = BuildModule(kEnv, nullptr, shader, kReduceAssembleOption);
+
+  CheckValid(kEnv, context.get());
+
+  auto ops = ConditionalBranchToSimpleConditionalBranchOpportunityFinder()
+                 .GetAvailableOpportunities(context.get());
+
+  ASSERT_EQ(2, ops.size());
+
+  ASSERT_TRUE(ops[0]->PreconditionHolds());
+  ASSERT_TRUE(ops[1]->PreconditionHolds());
+  ops[0]->TryToApply();
+  // The other opportunity should now be disabled.
+  ASSERT_FALSE(ops[1]->PreconditionHolds());
+
+  CheckValid(kEnv, context.get());
+
+  {
+    std::string after = R"(
+                 OpCapability Shader
+            %1 = OpExtInstImport "GLSL.std.450"
+                 OpMemoryModel Logical GLSL450
+                 OpEntryPoint Fragment %2 "main"
+                 OpExecutionMode %2 OriginUpperLeft
+                 OpSource ESSL 310
+                 OpName %2 "main"
+            %3 = OpTypeVoid
+            %4 = OpTypeFunction %3
+            %5 = OpTypeInt 32 1
+            %6 = OpTypePointer Function %5
+            %7 = OpTypeBool
+            %8 = OpConstantTrue %7
+            %2 = OpFunction %3 None %4
+            %9 = OpLabel
+                 OpBranch %10
+           %10 = OpLabel
+                 OpSelectionMerge %11 None
+                 OpBranchConditional %8 %12 %12
+           %12 = OpLabel
+                 OpBranch %11
+           %13 = OpLabel
+                 OpBranch %11
+           %11 = OpLabel
+                 OpReturn
+                 OpFunctionEnd
+      )";
+    CheckEqual(kEnv, after, context.get());
+  }
+
+  ops = ConditionalBranchToSimpleConditionalBranchOpportunityFinder()
+            .GetAvailableOpportunities(context.get());
+  ASSERT_EQ(0, ops.size());
+
+  // Start again, and apply the other op.
+  context = BuildModule(kEnv, nullptr, shader, kReduceAssembleOption);
+
+  CheckValid(kEnv, context.get());
+
+  ops = ConditionalBranchToSimpleConditionalBranchOpportunityFinder()
+            .GetAvailableOpportunities(context.get());
+  ASSERT_EQ(2, ops.size());
+
+  ASSERT_TRUE(ops[0]->PreconditionHolds());
+  ASSERT_TRUE(ops[1]->PreconditionHolds());
+  ops[1]->TryToApply();
+  // The other opportunity should now be disabled.
+  ASSERT_FALSE(ops[0]->PreconditionHolds());
+
+  CheckValid(kEnv, context.get());
+
+  {
+    std::string after2 = R"(
+                 OpCapability Shader
+            %1 = OpExtInstImport "GLSL.std.450"
+                 OpMemoryModel Logical GLSL450
+                 OpEntryPoint Fragment %2 "main"
+                 OpExecutionMode %2 OriginUpperLeft
+                 OpSource ESSL 310
+                 OpName %2 "main"
+            %3 = OpTypeVoid
+            %4 = OpTypeFunction %3
+            %5 = OpTypeInt 32 1
+            %6 = OpTypePointer Function %5
+            %7 = OpTypeBool
+            %8 = OpConstantTrue %7
+            %2 = OpFunction %3 None %4
+            %9 = OpLabel
+                 OpBranch %10
+           %10 = OpLabel
+                 OpSelectionMerge %11 None
+                 OpBranchConditional %8 %13 %13
+           %12 = OpLabel
+                 OpBranch %11
+           %13 = OpLabel
+                 OpBranch %11
+           %11 = OpLabel
+                 OpReturn
+                 OpFunctionEnd
+      )";
+    CheckEqual(kEnv, after2, context.get());
+  }
+
+}
+
+TEST(ConditionalBranchToSimpleConditionalBranchTest, AlreadySimplified) {
+  // A test with the following structure.
+  //
+  // selection header
+  // OpBranchConditional
+  //  ||
+  //  b         b
+  //  |         |
+  //  selection merge
+  //
+  // There should be no opportunities for redirecting the OpBranchConditional
+  // as it is already simplified.
+  //
+
+
+  std::string shader = R"(
+               OpCapability Shader
+          %1 = OpExtInstImport "GLSL.std.450"
+               OpMemoryModel Logical GLSL450
+               OpEntryPoint Fragment %2 "main"
+               OpExecutionMode %2 OriginUpperLeft
+               OpSource ESSL 310
+               OpName %2 "main"
+          %3 = OpTypeVoid
+          %4 = OpTypeFunction %3
+          %5 = OpTypeInt 32 1
+          %6 = OpTypePointer Function %5
+          %7 = OpTypeBool
+          %8 = OpConstantTrue %7
+          %2 = OpFunction %3 None %4
+          %9 = OpLabel
+               OpBranch %10
+         %10 = OpLabel
+               OpSelectionMerge %11 None
+               OpBranchConditional %8 %12 %12
+         %12 = OpLabel
+               OpBranch %11
+         %11 = OpLabel
+               OpReturn
+               OpFunctionEnd
+
+    )";
+
+  auto context = BuildModule(kEnv, nullptr, shader, kReduceAssembleOption);
+
+  CheckValid(kEnv, context.get());
+
+  auto ops = ConditionalBranchToSimpleConditionalBranchOpportunityFinder()
+      .GetAvailableOpportunities(context.get());
+
+  ASSERT_EQ(0, ops.size());
+
+}
+
 TEST(ConditionalBranchToSimpleConditionalBranchTest, DontRemoveBackEdge) {
   // A test with the following structure. The loop has a continue construct that
   // ends with OpBranchConditional. The OpBranchConditional can be simplified,
