@@ -43,11 +43,33 @@ ConditionalBranchToSimpleConditionalBranchOpportunityFinder::
         if (terminator->opcode() != SpvOpBranchConditional) {
           continue;
         }
+
+        uint32_t true_block_id =
+            terminator->GetSingleWordInOperand(kTrueBranchOperandIndex);
+        uint32_t false_block_id =
+            terminator->GetSingleWordInOperand(kFalseBranchOperandIndex);
+
         // The conditional branch must not already be simplified.
-        if (terminator->GetSingleWordInOperand(kTrueBranchOperandIndex) ==
-            terminator->GetSingleWordInOperand(kFalseBranchOperandIndex)) {
+        if (true_block_id == false_block_id) {
           continue;
         }
+
+        // The redirected target must not be a back-edge to a structured loop
+        // header.
+        uint32_t redirected_block_id =
+            redirect_to_true ? false_block_id : true_block_id;
+        uint32_t containing_loop_header =
+            context->GetStructuredCFGAnalysis()->ContainingLoop(block.id());
+        // The structured CFG analysis does not include a loop header as part
+        // of the loop construct, but we want to include it, so handle this
+        // special case:
+        if (block.GetLoopMergeInst() != nullptr) {
+          containing_loop_header = block.id();
+        }
+        if (redirected_block_id == containing_loop_header) {
+          continue;
+        }
+
         result.push_back(
             MakeUnique<
                 ConditionalBranchToSimpleConditionalBranchReductionOpportunity>(
