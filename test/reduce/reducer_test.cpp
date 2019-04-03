@@ -322,10 +322,12 @@ TEST(ReducerTest, RemoveOpnameAndRemoveUnreferenced) {
 }
 
 bool InterestingWhileOpcodeExists(const std::vector<uint32_t>& binary,
-                                  uint32_t opcode, uint32_t count) {
-  std::stringstream ss;
-  ss << "temp_" << count << ".spv";
-  DumpShader(binary, ss.str().c_str());
+                                  uint32_t opcode, uint32_t count, bool dump) {
+  if (dump) {
+    std::stringstream ss;
+    ss << "temp_" << count << ".spv";
+    DumpShader(binary, ss.str().c_str());
+  }
 
   std::unique_ptr<IRContext> context =
       BuildModule(kEnv, CLIMessageConsumer, binary.data(), binary.size());
@@ -350,14 +352,41 @@ bool InterestingWhileOpcodeExists(const std::vector<uint32_t>& binary,
 
 bool InterestingWhileIMulReachable(const std::vector<uint32_t>& binary,
                                    uint32_t count) {
-  return InterestingWhileOpcodeExists(binary, SpvOpIMul, count);
+  return InterestingWhileOpcodeExists(binary, SpvOpIMul, count, false);
 }
 
 bool InterestingWhileSDivReachable(const std::vector<uint32_t>& binary,
                                    uint32_t count) {
-  return InterestingWhileOpcodeExists(binary, SpvOpSDiv, count);
+  return InterestingWhileOpcodeExists(binary, SpvOpSDiv, count, false);
 }
 
+/*
+#version 310 es
+precision highp float;
+layout(location = 0) out vec4 _GLF_color;
+int foo() {
+    int x = 1;
+    int y;
+    x = y / x;   // SDiv
+    return x;
+}
+void main() {
+    int c;
+    while (bool(c)) {
+        do {
+            if (bool(c)) {
+                if (bool(c)) {
+                    ++c;
+                } else {
+                    _GLF_color.x = float(c*c);  // IMul
+                }
+                return;
+            }
+        } while(bool(foo()));
+        return;
+    }
+}
+*/
 const std::string shaderWithLoopsDivAndMul = R"(
                OpCapability Shader
           %1 = OpExtInstImport "GLSL.std.450"
