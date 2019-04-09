@@ -12,8 +12,9 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "source/opt/build_module.h"
 #include "source/reduce/conditional_branch_to_simple_conditional_branch_opportunity_finder.h"
+
+#include "source/opt/build_module.h"
 #include "source/reduce/reduction_opportunity.h"
 #include "source/reduce/reduction_pass.h"
 #include "test/reduce/reduce_test_util.h"
@@ -175,7 +176,6 @@ TEST(ConditionalBranchToSimpleConditionalBranchTest, Diamond) {
       )";
     CheckEqual(kEnv, after2, context.get());
   }
-
 }
 
 TEST(ConditionalBranchToSimpleConditionalBranchTest, AlreadySimplified) {
@@ -191,7 +191,6 @@ TEST(ConditionalBranchToSimpleConditionalBranchTest, AlreadySimplified) {
   // There should be no opportunities for redirecting the OpBranchConditional
   // as it is already simplified.
   //
-
 
   std::string shader = R"(
                OpCapability Shader
@@ -226,10 +225,9 @@ TEST(ConditionalBranchToSimpleConditionalBranchTest, AlreadySimplified) {
   CheckValid(kEnv, context.get());
 
   auto ops = ConditionalBranchToSimpleConditionalBranchOpportunityFinder()
-      .GetAvailableOpportunities(context.get());
+                 .GetAvailableOpportunities(context.get());
 
   ASSERT_EQ(0, ops.size());
-
 }
 
 TEST(ConditionalBranchToSimpleConditionalBranchTest, DontRemoveBackEdge) {
