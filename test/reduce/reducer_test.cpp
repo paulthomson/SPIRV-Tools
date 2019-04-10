@@ -28,6 +28,7 @@ using opt::BasicBlock;
 using opt::IRContext;
 
 const spv_target_env kEnv = SPV_ENV_UNIVERSAL_1_3;
+const MessageConsumer kMessageConsumer = CLIMessageConsumer;
 
 // This changes its mind each time IsInteresting is invoked as to whether the
 // binary is interesting, until some limit is reached after which the binary is
@@ -331,7 +332,7 @@ bool InterestingWhileOpcodeExists(const std::vector<uint32_t>& binary,
   }
 
   std::unique_ptr<IRContext> context =
-      BuildModule(kEnv, CLIMessageConsumer, binary.data(), binary.size());
+      BuildModule(kEnv, kMessageConsumer, binary.data(), binary.size());
   assert(context);
   bool interesting = false;
   for (auto& function : *context->module()) {
@@ -350,6 +351,8 @@ bool InterestingWhileOpcodeExists(const std::vector<uint32_t>& binary,
   }
   return interesting;
 }
+
+bool AlwaysInteresting(const std::vector<uint32_t>&, uint32_t) { return true; }
 
 bool InterestingWhileIMulReachable(const std::vector<uint32_t>& binary,
                                    uint32_t count) {
@@ -388,7 +391,7 @@ void main() {
     }
 }
 */
-const std::string shaderWithLoopsDivAndMul = R"(
+const std::string kShaderWithLoopsDivAndMul = R"(
                OpCapability Shader
           %1 = OpExtInstImport "GLSL.std.450"
                OpMemoryModel Logical GLSL450
@@ -476,16 +479,17 @@ TEST(ReducerTest, ShaderReduceWhileMulReachable) {
 
   reducer.SetInterestingnessFunction(InterestingWhileIMulReachable);
   reducer.AddDefaultReductionPasses();
-  reducer.SetMessageConsumer(CLIMessageConsumer);
+  reducer.SetMessageConsumer(kMessageConsumer);
 
   std::vector<uint32_t> binary_in;
   SpirvTools t(kEnv);
 
   ASSERT_TRUE(
-      t.Assemble(shaderWithLoopsDivAndMul, &binary_in, kReduceAssembleOption));
+      t.Assemble(kShaderWithLoopsDivAndMul, &binary_in, kReduceAssembleOption));
   std::vector<uint32_t> binary_out;
   spvtools::ReducerOptions reducer_options;
   reducer_options.set_step_limit(500);
+  reducer_options.set_fail_on_validation_error(true);
   spvtools::ValidatorOptions validator_options;
 
   Reducer::ReductionResultStatus status = reducer.Run(
@@ -499,22 +503,92 @@ TEST(ReducerTest, ShaderReduceWhileDivReachable) {
 
   reducer.SetInterestingnessFunction(InterestingWhileSDivReachable);
   reducer.AddDefaultReductionPasses();
-  reducer.SetMessageConsumer(CLIMessageConsumer);
+  reducer.SetMessageConsumer(kMessageConsumer);
 
   std::vector<uint32_t> binary_in;
   SpirvTools t(kEnv);
 
   ASSERT_TRUE(
-      t.Assemble(shaderWithLoopsDivAndMul, &binary_in, kReduceAssembleOption));
+      t.Assemble(kShaderWithLoopsDivAndMul, &binary_in, kReduceAssembleOption));
   std::vector<uint32_t> binary_out;
   spvtools::ReducerOptions reducer_options;
   reducer_options.set_step_limit(500);
+  reducer_options.set_fail_on_validation_error(true);
   spvtools::ValidatorOptions validator_options;
 
   Reducer::ReductionResultStatus status = reducer.Run(
       std::move(binary_in), &binary_out, reducer_options, validator_options);
 
   ASSERT_EQ(status, Reducer::ReductionResultStatus::kComplete);
+}
+
+TEST(ReducerTest, EmptyShaderUnusedTypes) {
+  // A module with some unused global variables, constants, and types. Some
+  // cannot be removed unless the OpDecorate and OpName instructions are
+  // removed. This test just ensures that reduction passes are working together.
+
+  const std::string original = R"(
+               OpCapability Shader
+          %1 = OpExtInstImport "GLSL.std.450"
+               OpMemoryModel Logical GLSL450
+               OpEntryPoint Fragment %4 "main"
+               OpExecutionMode %4 OriginUpperLeft
+               OpSource ESSL 310
+               OpName %4 "main"
+               OpName %12 "a"
+               OpDecorate %12 RelaxedPrecision
+               OpDecorate %13 RelaxedPrecision
+          %2 = OpTypeVoid
+          %3 = OpTypeFunction %2
+          %6 = OpTypeBool
+          %7 = OpConstantTrue %6
+         %10 = OpTypeInt 32 1
+         %11 = OpTypePointer Private %10
+         %12 = OpVariable %11 Private
+         %13 = OpConstant %10 1
+          %4 = OpFunction %2 None %3
+          %5 = OpLabel
+               OpReturn
+               OpFunctionEnd
+  )";
+
+  Reducer reducer(kEnv);
+
+  reducer.SetInterestingnessFunction(AlwaysInteresting);
+  reducer.AddDefaultReductionPasses();
+  reducer.SetMessageConsumer(kMessageConsumer);
+
+  std::vector<uint32_t> binary_in;
+  SpirvTools t(kEnv);
+
+  ASSERT_TRUE(t.Assemble(original, &binary_in, kReduceAssembleOption));
+  std::vector<uint32_t> binary_out;
+  spvtools::ReducerOptions reducer_options;
+  reducer_options.set_step_limit(500);
+  reducer_options.set_fail_on_validation_error(true);
+  spvtools::ValidatorOptions validator_options;
+
+  Reducer::ReductionResultStatus status = reducer.Run(
+      std::move(binary_in), &binary_out, reducer_options, validator_options);
+
+  ASSERT_EQ(status, Reducer::ReductionResultStatus::kComplete);
+
+  const std::string after = R"(
+               OpCapability Shader
+          %1 = OpExtInstImport "GLSL.std.450"
+               OpMemoryModel Logical GLSL450
+               OpEntryPoint Fragment %4 "main"
+               OpExecutionMode %4 OriginUpperLeft
+               OpSource ESSL 310
+          %2 = OpTypeVoid
+          %3 = OpTypeFunction %2
+          %4 = OpFunction %2 None %3
+          %5 = OpLabel
+               OpReturn
+               OpFunctionEnd
+  )";
+
+  CheckEqual(kEnv, after, binary_out);
 }
 
 }  // namespace
