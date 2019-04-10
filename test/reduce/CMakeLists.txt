@@ -30,6 +30,7 @@ add_spvtools_unittest(TARGET reduce
         validation_during_reduction_test.cpp
         conditional_branch_to_simple_conditional_branch_test.cpp
         simple_conditional_branch_to_branch_test.cpp
+        remove_module_instruction_test.cpp
         LIBS SPIRV-Tools-reduce
         )
 
