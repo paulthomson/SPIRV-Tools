@@ -28,6 +28,41 @@ RemoveUnreferencedInstructionReductionOpportunityFinder::
     GetAvailableOpportunities(IRContext* context) const {
   std::vector<std::unique_ptr<ReductionOpportunity>> result;
 
+  for (auto& inst : context->module()->debugs1()) {
+    if (context->get_def_use_mgr()->NumUses(&inst) > 0) {
+      continue;
+    }
+    result.push_back(MakeUnique<RemoveInstructionReductionOpportunity>(&inst));
+  }
+
+  for (auto& inst : context->module()->debugs2()) {
+    if (context->get_def_use_mgr()->NumUses(&inst) > 0) {
+      continue;
+    }
+    result.push_back(MakeUnique<RemoveInstructionReductionOpportunity>(&inst));
+  }
+
+  for (auto& inst : context->module()->debugs3()) {
+    if (context->get_def_use_mgr()->NumUses(&inst) > 0) {
+      continue;
+    }
+    result.push_back(MakeUnique<RemoveInstructionReductionOpportunity>(&inst));
+  }
+
+  for (auto& inst : context->module()->types_values()) {
+    if (context->get_def_use_mgr()->NumUsers(&inst) > 0) {
+      continue;
+    }
+    result.push_back(MakeUnique<RemoveInstructionReductionOpportunity>(&inst));
+  }
+
+  for (auto& inst : context->module()->annotations()) {
+    if (context->get_def_use_mgr()->NumUsers(&inst) > 0) {
+      continue;
+    }
+    result.push_back(MakeUnique<RemoveInstructionReductionOpportunity>(&inst));
+  }
+
   for (auto& function : *context->module()) {
     for (auto& block : function) {
       for (auto& inst : block) {

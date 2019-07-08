@@ -28,12 +28,17 @@ RemoveModuleInstructionReductionOpportunityFinder::GetAvailableOpportunities(
     opt::IRContext* context) const {
   std::vector<std::unique_ptr<ReductionOpportunity>> result;
 
-  for (auto it = context->module()->types_values_begin();
-       it != context->module()->types_values_end(); ++it) {
-    if (context->get_def_use_mgr()->NumUsers(&*it) > 0) {
+  for (auto& inst : context->module()->debugs2()) {
+    if (inst.opcode() == SpvOpName || inst.opcode() == SpvOpMemberName) {
+      result.push_back(
+          MakeUnique<RemoveInstructionReductionOpportunity>(&inst));
+    }
+  }
+  for (auto& inst : context->module()->types_values()) {
+    if (context->get_def_use_mgr()->NumUsers(&inst) > 0) {
       continue;
     }
-    result.push_back(MakeUnique<RemoveInstructionReductionOpportunity>(&*it));
+    result.push_back(MakeUnique<RemoveInstructionReductionOpportunity>(&inst));
   }
 
   return result;
